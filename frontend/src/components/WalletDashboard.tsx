@@ -80,6 +80,8 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
   // Fix hydration issue
   useEffect(() => {
     setMounted(true);
+    // Initialize wallet naming service on client side
+    walletNamingService.initialize();
   }, []);
 
   // Initialize contract service with signer
