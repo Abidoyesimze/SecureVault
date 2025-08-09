@@ -62,7 +62,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3">
+              <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
                 <div className="w-10 h-10 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 rounded-xl flex items-center justify-center shadow-lg">
                   <Building2 className="w-6 h-6 text-white" />
                 </div>
@@ -72,7 +72,7 @@ export default function Home() {
                   </span>
                   <p className="text-xs text-gray-500 -mt-1">Enterprise Treasury</p>
                 </div>
-              </div>
+              </Link>
               <div className="h-6 w-px bg-gray-300"></div>
               <div className="flex items-center space-x-2 text-sm text-gray-600">
                 <Globe className="w-4 h-4" />

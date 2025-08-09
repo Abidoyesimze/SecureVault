@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAccount, useWalletClient } from 'wagmi';
 import { 
   Wallet, 
@@ -18,7 +18,8 @@ import {
   RefreshCw,
   Building2,
   TrendingUp,
-  Globe
+  Globe,
+  Edit3
 } from 'lucide-react';
 import { contractService, WalletInfo, TransactionInfo } from '../lib/contractService';
 import { walletNamingService } from '../lib/walletNaming';
@@ -29,6 +30,7 @@ import TransactionApprover from './TransactionApprover';
 import TransactionExecutor from './TransactionExecutor';
 import SignerManager from './SignerManager';
 import BulkPayment from './BulkPayment';
+import WalletNameEditor from './WalletNameEditor';
 
 interface WalletStats {
   totalSigners: number;
@@ -47,6 +49,7 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
   const { address } = useAccount();
   const { data: signer } = useWalletClient();
   const [mounted, setMounted] = useState(false);
+  const isInitialLoad = useRef(true);
   
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
   const [transactions, setTransactions] = useState<TransactionInfo[]>([]);
@@ -67,6 +70,7 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
   const [selectedTransaction, setSelectedTransaction] = useState<TransactionInfo | null>(null);
   const [showSignerManager, setShowSignerManager] = useState(false);
   const [showBulkPayment, setShowBulkPayment] = useState(false);
+  const [showWalletNameEditor, setShowWalletNameEditor] = useState(false);
   const [isLoadingWallets, setIsLoadingWallets] = useState(false);
   const [isLoadingWalletInfo, setIsLoadingWalletInfo] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -95,17 +99,19 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
       console.log('Found wallets:', wallets);
       setUserWallets(wallets);
       
-      // Auto-select first wallet if available
-      if (wallets.length > 0 && !selectedWallet) {
+      // Only auto-select first wallet if this is the initial load and no wallet is selected
+      // AND we haven't already loaded wallets before
+      if (wallets.length > 0 && !selectedWallet && isInitialLoad.current) {
         console.log('Auto-selecting first wallet:', wallets[0]);
         setSelectedWallet(wallets[0]);
+        isInitialLoad.current = false;
       }
     } catch (error) {
       console.error('Error loading user wallets:', error);
     } finally {
       setIsLoadingWallets(false);
     }
-  }, [address, selectedWallet]);
+  }, [address]); // Only depend on address, not selectedWallet
 
   const loadWalletInfo = useCallback(async () => {
     if (!selectedWallet) return;
@@ -248,6 +254,35 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
            walletNamingService.generateDefaultName(index);
   };
 
+  const handleWalletNameUpdate = (newName: string) => {
+    // Force re-render by updating the component state
+    if (selectedWallet) {
+      // This will trigger a re-render and update the display name
+      setSelectedWallet(selectedWallet);
+    }
+  };
+
+  const handleEditWalletName = (e: React.MouseEvent, walletAddress: string) => {
+    e.stopPropagation();
+    setShowWalletNameEditor(true);
+  };
+
+  const handleBackToWallets = () => {
+    setSelectedWallet('');
+    setWalletInfo(null);
+    setTransactions([]);
+    setStats({
+      totalSigners: 0,
+      activeSigners: 0,
+      threshold: 0,
+      pendingTransactions: 0,
+      totalTransactions: 0,
+      balance: '0'
+    });
+    setIsCurrentUserSigner(false);
+    setWalletError(null);
+  };
+
   // Copy address functionality
   const copyAddress = async (address: string) => {
     try {
@@ -358,9 +393,18 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
                           <Building2 className="w-7 h-7 text-white" />
                         </div>
                         <div className="flex-1">
-                          <h4 className="text-xl font-bold text-gray-900">
-                            {getWalletDisplayName(wallet, index)}
-                          </h4>
+                          <div className="flex items-center space-x-2">
+                            <h4 className="text-xl font-bold text-gray-900">
+                              {getWalletDisplayName(wallet, index)}
+                            </h4>
+                            <button
+                              onClick={(e) => handleEditWalletName(e, wallet)}
+                              className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-200 transition-all duration-200"
+                              title="Edit treasury name"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                          </div>
                           <p className="text-sm text-gray-600 font-mono bg-gray-100 px-3 py-1 rounded-lg inline-block mt-1">
                             {wallet.slice(0, 8)}...{wallet.slice(-6)}
                           </p>
@@ -398,7 +442,7 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-6">
                     <button
-                      onClick={() => setSelectedWallet('')}
+                      onClick={handleBackToWallets}
                       className="p-3 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-100 transition-all duration-200"
                     >
                       <X className="w-6 h-6" />
@@ -407,9 +451,18 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
                       <Building2 className="w-8 h-8 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-800 to-indigo-900 bg-clip-text text-transparent">
-                        {getWalletDisplayName(selectedWallet, userWallets.indexOf(selectedWallet))}
-                      </h2>
+                      <div className="flex items-center space-x-2">
+                        <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-800 to-indigo-900 bg-clip-text text-transparent">
+                          {getWalletDisplayName(selectedWallet, userWallets.indexOf(selectedWallet))}
+                        </h2>
+                        <button
+                          onClick={(e) => handleEditWalletName(e, selectedWallet)}
+                          className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-all duration-200"
+                          title="Edit treasury name"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      </div>
                       <div className="flex items-center space-x-3 mt-2">
                         <p className="text-sm text-gray-600 font-mono bg-gray-100 px-3 py-1 rounded-lg">
                           {selectedWallet.slice(0, 8)}...{selectedWallet.slice(-6)}
@@ -893,6 +946,15 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
           walletAddress={selectedWallet || ''}
           onBulkPaymentProposed={handleTransactionAction}
           onClose={() => setShowBulkPayment(false)}
+        />
+      )}
+
+      {showWalletNameEditor && selectedWallet && (
+        <WalletNameEditor
+          walletAddress={selectedWallet}
+          currentName={getWalletDisplayName(selectedWallet, userWallets.indexOf(selectedWallet))}
+          onNameUpdated={handleWalletNameUpdate}
+          onClose={() => setShowWalletNameEditor(false)}
         />
       )}
     </div>
