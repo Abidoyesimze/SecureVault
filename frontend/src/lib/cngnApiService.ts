@@ -16,15 +16,19 @@ interface CNGNBalanceData {
 class CNGNApiService {
   /**
    * Get cNGN balance for a wallet address using the official cNGN API
-   * @param _walletAddress - The wallet address to get balance for (unused in current implementation)
+   * @param walletAddress - The wallet address to get balance for
    * @returns Promise<string> - The balance as a string
    */
-  async getCNGNBalance(_walletAddress: string): Promise<string> {
+  async getCNGNBalance(walletAddress: string): Promise<string> {
     try {
       if (!CNGN_CONFIG.API_KEY) {
         console.warn('cNGN API key not configured, falling back to contract balance');
         return '0';
       }
+
+      // Note: The cNGN API currently doesn't support wallet-specific balance queries
+      // This is a placeholder for future implementation
+      console.log(`Requesting cNGN balance for wallet: ${walletAddress}`);
 
       const response = await fetch(`${CNGN_CONFIG.API_BASE_URL}${CNGN_CONFIG.ENDPOINTS.BALANCE}`, {
         method: 'GET',

@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { useState } from 'react';
 import { ethers } from 'ethers';
 import { MultisigFactoryContract } from '../app/index';
 
