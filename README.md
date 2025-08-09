@@ -217,7 +217,7 @@ Traditional enterprise treasury management lacks:
    - Configure department permissions
 
 3. **💰 Fund Treasury**
-   - Deposit cNGN, USDC, USDT, or ETH
+   - Deposit cNGN
    - Verify real-time balance updates
    - Set up initial payment templates
 
