@@ -3,7 +3,7 @@
 import { RainbowKitProvider, getDefaultWallets, connectorsForWallets } from '@rainbow-me/rainbowkit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, createConfig, http } from 'wagmi';
-import { base } from 'wagmi/chains';
+import { baseSepolia } from 'wagmi/chains';
 import '@rainbow-me/rainbowkit/styles.css';
 
 const { wallets } = getDefaultWallets({
@@ -17,10 +17,10 @@ const connectors = connectorsForWallets(wallets, {
 });
 
 const config = createConfig({
-  chains: [base],
+  chains: [baseSepolia],
   connectors,
   transports: {
-    [base.id]: http(),
+    [baseSepolia.id]: http(),
   },
 });
 
