@@ -11,8 +11,7 @@
 [![cNGN Ready](https://img.shields.io/badge/cNGN-Native%20Support-green)](https://cngn.co/)
 [![Nigerian Enterprise](https://img.shields.io/badge/🇳🇬-Nigerian%20Enterprise%20Solution-green)](https://github.com/your-repo)
 
-[🚀 Launch App](https://securevault.app) • [📖 Documentation](https://docs.securevault.app) • [🐛 Report Bug](https://github.com/your-repo/issues) • [💡 Request Feature](https://github.com/your-repo/issues)
-
+[🚀 Launch App](https://secure-vault-pi.vercel.app/) 
 </div>
 
 ---
@@ -66,7 +65,6 @@ Traditional enterprise treasury management lacks:
 
 ### 🇳🇬 **Native cNGN Integration**
 - **Primary Asset Support**: Built for cNGN as the main treasury currency
-- **Real-Time Conversion**: Live cNGN to NGN exchange rates
 - **Multi-Asset Treasury**: Support for USDC, USDT, and ETH alongside cNGN
 - **Nigerian Business Context**: Currency formatting and local business practices
 
@@ -74,13 +72,7 @@ Traditional enterprise treasury management lacks:
 - **CSV Payroll Upload**: Process monthly salary payments in minutes
 - **Vendor Payment Batching**: Bulk payments to suppliers and contractors
 - **Payment Templates**: Standardized payment workflows
-- **Automated Compliance**: Built-in audit trails for all transactions
 
-### 📈 **Business Intelligence**
-- **Treasury Dashboard**: Real-time asset monitoring and analytics
-- **Compliance Reporting**: Automated regulatory filing preparation
-- **Audit Trail**: Complete transaction history and approval workflows
-- **Department Analytics**: Spending breakdowns by business unit
 
 ---
 
@@ -107,7 +99,6 @@ Traditional enterprise treasury management lacks:
 ### **3. Compliance & Reporting**
 ```
 📋 Automated Compliance
-├── 📄 Generate audit reports
 ├── 🔍 Track all transaction histories
 ├── 📊 Export data for accounting systems
 └── 🛡️ Maintain regulatory compliance
@@ -327,7 +318,7 @@ While SecureVault is designed to support regulatory compliance, users are respon
 
 **🚀 Ready to secure your enterprise treasury?**
 
-[**Launch SecureVault**](https://securevault.app) | [**Contact Sales**](mailto:enterprise@securevault.app) | [**Join Community**](https://community.securevault.app)
+[**Launch SecureVault**](https://secure-vault-pi.vercel.app/) 
 
 ---
 
