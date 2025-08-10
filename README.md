@@ -66,7 +66,6 @@ Traditional enterprise treasury management lacks:
 
 ### 🇳🇬 **Native cNGN Integration**
 - **Primary Asset Support**: Built for cNGN as the main treasury currency
-- **Real-Time Conversion**: Live cNGN to NGN exchange rates
 - **Multi-Asset Treasury**: Support for USDC, USDT, and ETH alongside cNGN
 - **Nigerian Business Context**: Currency formatting and local business practices
 
@@ -74,13 +73,7 @@ Traditional enterprise treasury management lacks:
 - **CSV Payroll Upload**: Process monthly salary payments in minutes
 - **Vendor Payment Batching**: Bulk payments to suppliers and contractors
 - **Payment Templates**: Standardized payment workflows
-- **Automated Compliance**: Built-in audit trails for all transactions
 
-### 📈 **Business Intelligence**
-- **Treasury Dashboard**: Real-time asset monitoring and analytics
-- **Compliance Reporting**: Automated regulatory filing preparation
-- **Audit Trail**: Complete transaction history and approval workflows
-- **Department Analytics**: Spending breakdowns by business unit
 
 ---
 
@@ -107,7 +100,6 @@ Traditional enterprise treasury management lacks:
 ### **3. Compliance & Reporting**
 ```
 📋 Automated Compliance
-├── 📄 Generate audit reports
 ├── 🔍 Track all transaction histories
 ├── 📊 Export data for accounting systems
 └── 🛡️ Maintain regulatory compliance
