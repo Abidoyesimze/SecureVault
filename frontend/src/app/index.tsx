@@ -12,7 +12,7 @@ export const MultisigFactoryContract = {
 }
 
 export const TOKEN_ADDRESSES = {
-    'cNGN': '0x7E29CF1D8b1F4c847D0f821b79dDF6E67A5c11F8', // Replace with actual cNGN contract address on Base
-    // USDT on Base
+    'cNGN': '0x7E29CF1D8b1F4c847D0f821b79dDF6E67A5c11F8', 
+    
   };
 
