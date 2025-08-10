@@ -11,8 +11,7 @@
 [![cNGN Ready](https://img.shields.io/badge/cNGN-Native%20Support-green)](https://cngn.co/)
 [![Nigerian Enterprise](https://img.shields.io/badge/🇳🇬-Nigerian%20Enterprise%20Solution-green)](https://github.com/your-repo)
 
-[🚀 Launch App](https://securevault.app) • [📖 Documentation](https://docs.securevault.app) • [🐛 Report Bug](https://github.com/your-repo/issues) • [💡 Request Feature](https://github.com/your-repo/issues)
-
+[🚀 Launch App](https://secure-vault-pi.vercel.app/) 
 </div>
 
 ---
@@ -319,7 +318,7 @@ While SecureVault is designed to support regulatory compliance, users are respon
 
 **🚀 Ready to secure your enterprise treasury?**
 
-[**Launch SecureVault**](https://securevault.app) | [**Contact Sales**](mailto:enterprise@securevault.app) | [**Join Community**](https://community.securevault.app)
+[**Launch SecureVault**](https://secure-vault-pi.vercel.app/) 
 
 ---
 
