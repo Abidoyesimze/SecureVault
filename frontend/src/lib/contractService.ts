@@ -1,8 +1,6 @@
 // lib/contractService.ts
 import { ethers } from 'ethers';
 import { MultisigContract, MultisigFactoryContract } from '../app/index';
-import { cngnApiService } from './cngnApiService';
-import { CNGN_CONFIG } from './cngnConfig';
 
 // ERC-20 ABI for token operations
 const ERC20_ABI = [
@@ -13,7 +11,15 @@ const ERC20_ABI = [
   "function name() view returns (string)"
 ];
 
-// Token addresses - update these with actual addresses
+// cNGN Configuration - update with real address
+const CNGN_CONFIG = {
+  CONTRACT_ADDRESS: '0x1a4b46696b2bb4794eb3d4c26f1c55f9170fa4c5', // Replace with actual cNGN address
+  DECIMALS: 18,
+  SYMBOL: 'cNGN',
+  NAME: 'Nigerian Naira Token'
+};
+
+// Token addresses - simplified for now
 export const TOKEN_ADDRESSES = {
   'cNGN': CNGN_CONFIG.CONTRACT_ADDRESS,
 };
@@ -50,8 +56,13 @@ class ContractService {
 
   async initializeProvider() {
     if (typeof window !== 'undefined' && window.ethereum) {
-      this.provider = new ethers.BrowserProvider(window.ethereum);
-      this.signer = await this.provider.getSigner();
+      try {
+        this.provider = new ethers.BrowserProvider(window.ethereum);
+        this.signer = await this.provider.getSigner();
+        console.log('Provider initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize provider:', error);
+      }
     }
   }
 
@@ -151,22 +162,12 @@ class ContractService {
     }
   }
 
-  // New: Get token balance
+  // Get token balance with simplified approach
   async getTokenBalance(walletAddress: string, tokenAddress: string): Promise<string> {
     const provider = await this.getProvider();
     if (!provider) throw new Error('Provider not initialized');
 
     try {
-      // Check if this is cNGN token and API is available
-      if (tokenAddress.toLowerCase() === TOKEN_ADDRESSES.cNGN.toLowerCase()) {
-        // Try to get balance from cNGN API first
-        const apiBalance = await cngnApiService.getCNGNBalanceWithFallback(walletAddress, this);
-        if (apiBalance !== '0') {
-          return apiBalance;
-        }
-      }
-
-      // Fallback to contract balance
       const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
       const balance = await tokenContract.balanceOf(walletAddress);
       const decimals = await tokenContract.decimals();
@@ -178,7 +179,7 @@ class ContractService {
     }
   }
 
-  // New: Get all token balances
+  // Get all token balances
   async getAllTokenBalances(walletAddress: string): Promise<TokenBalance[]> {
     const provider = await this.getProvider();
     if (!provider) throw new Error('Provider not initialized');
@@ -187,23 +188,18 @@ class ContractService {
 
     for (const [symbol, address] of Object.entries(TOKEN_ADDRESSES)) {
       try {
-        let balance = '0';
+        const tokenContract = new ethers.Contract(address, ERC20_ABI, provider);
+        const [balance, decimals] = await Promise.all([
+          tokenContract.balanceOf(walletAddress),
+          tokenContract.decimals()
+        ]);
         
-        // Use cNGN API for cNGN token if available
-        if (symbol === 'cNGN') {
-          balance = await cngnApiService.getCNGNBalanceWithFallback(walletAddress, this);
-        } else {
-          // Use contract balance for other tokens
-          const tokenContract = new ethers.Contract(address, ERC20_ABI, provider);
-          const tokenBalance = await tokenContract.balanceOf(walletAddress);
-          const decimals = await tokenContract.decimals();
-          balance = ethers.formatUnits(tokenBalance, decimals);
-        }
+        const formattedBalance = ethers.formatUnits(balance, decimals);
 
         balances.push({
           symbol,
-          balance,
-          decimals: 18, // cNGN uses 18 decimals
+          balance: formattedBalance,
+          decimals: Number(decimals),
           address
         });
       } catch (error) {
@@ -240,7 +236,7 @@ class ContractService {
           const [, threshold] = await wallet.getWalletStatus();
 
           // Try to decode token transfer data
-          const tokenInfo = await this.decodeTokenTransfer(data);
+          const tokenInfo = await this.decodeTokenTransfer(data, to);
 
           transactions.push({
             id: i,
@@ -265,7 +261,7 @@ class ContractService {
     }
   }
 
-  private async decodeTokenTransfer(data: string): Promise<{token: string, symbol: string} | null> {
+  private async decodeTokenTransfer(data: string, to: string): Promise<{token: string, symbol: string} | null> {
     try {
       if (data === '0x' || data.length < 10) return null;
 
@@ -273,11 +269,15 @@ class ContractService {
       const transferSelector = '0xa9059cbb';
       if (!data.startsWith(transferSelector)) return null;
 
-      // For now, we'll assume it's cNGN if it's a token transfer
-      return {
-        token: TOKEN_ADDRESSES.cNGN,
-        symbol: 'cNGN'
-      };
+      // Check if the 'to' address matches cNGN contract
+      if (to.toLowerCase() === TOKEN_ADDRESSES.cNGN.toLowerCase()) {
+        return {
+          token: TOKEN_ADDRESSES.cNGN,
+          symbol: 'cNGN'
+        };
+      }
+
+      return null;
     } catch (error) {
       console.error('Error decoding token transfer:', error);
       return null;
@@ -302,7 +302,7 @@ class ContractService {
     }
   }
 
-  // New: Get token info
+  // Get token info
   async getTokenInfo(tokenAddress: string): Promise<{name: string, symbol: string, decimals: number}> {
     const provider = await this.getProvider();
     if (!provider) throw new Error('Provider not initialized');

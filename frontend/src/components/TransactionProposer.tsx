@@ -17,7 +17,6 @@ export default function TransactionProposer({ walletAddress, onTransactionPropos
   const { address } = useAccount();
   const [to, setTo] = useState('');
   const [value, setValue] = useState('');
-  const [selectedToken, setSelectedToken] = useState('cNGN');
   const [description, setDescription] = useState('');
   const [step, setStep] = useState<'form' | 'confirm' | 'success'>('form');
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -39,7 +38,7 @@ export default function TransactionProposer({ walletAddress, onTransactionPropos
     }
   }, [walletAddress]);
 
-  const loadExchangeRates = async () => {
+  const loadExchangeRates = useCallback(async () => {
     try {
       // In a real implementation, fetch from CoinGecko or similar API
       // For now, assuming 1:1 cNGN to NGN
@@ -47,13 +46,13 @@ export default function TransactionProposer({ walletAddress, onTransactionPropos
     } catch (error) {
       console.error('Error loading exchange rates:', error);
     }
-  };
+  }, []);
 
   // Load token balances and exchange rates
   useEffect(() => {
     loadTokenBalances();
     loadExchangeRates();
-  }, [loadTokenBalances]);
+  }, [loadTokenBalances, loadExchangeRates]);
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -74,9 +73,9 @@ export default function TransactionProposer({ walletAddress, onTransactionPropos
         }
 
         // Check if user has sufficient balance
-        const tokenBalance = tokenBalances.find(b => b.symbol === selectedToken);
+        const tokenBalance = tokenBalances.find(b => b.symbol === 'cNGN');
         if (tokenBalance && parsedValue > parseFloat(tokenBalance.balance)) {
-          newErrors.value = `Insufficient ${selectedToken} balance`;
+          newErrors.value = `Insufficient cNGN balance`;
         }
       } catch {
         newErrors.value = 'Invalid amount';
@@ -99,25 +98,16 @@ export default function TransactionProposer({ walletAddress, onTransactionPropos
 
   const handleConfirm = async () => {
     try {
-      let transactionTo = to;
-      let transactionValue = '0';
-      let transactionData = '0x';
-
-      if (selectedToken === 'ETH') {
-        // For ETH transfers
-        transactionValue = ethers.parseEther(value).toString();
-      } else {
-        // For ERC-20 token transfers
-        const tokenAddress = TOKEN_ADDRESSES[selectedToken as keyof typeof TOKEN_ADDRESSES];
-        transactionTo = tokenAddress;
-        transactionData = await contractService.encodeTokenTransfer(tokenAddress, to, value);
-      }
+      // For cNGN transfers
+      const tokenAddress = TOKEN_ADDRESSES.cNGN;
+      const transactionTo = tokenAddress;
+      const transactionData = await contractService.encodeTokenTransfer(tokenAddress, to, value);
 
       writeContract({
         address: walletAddress as `0x${string}`,
         abi: MultisigContract.abi,
         functionName: 'proposeTransaction',
-        args: [transactionTo, transactionValue, transactionData],
+        args: [transactionTo, '0', transactionData],
       });
     } catch (error) {
       console.error('Error proposing transaction:', error);
@@ -149,7 +139,7 @@ export default function TransactionProposer({ walletAddress, onTransactionPropos
   };
 
   const getNgnValue = () => {
-    if (selectedToken === 'cNGN' && value) {
+    if (value) {
       return (parseFloat(value) * ngn_rate).toLocaleString();
     }
     return '';
@@ -202,34 +192,18 @@ export default function TransactionProposer({ walletAddress, onTransactionPropos
                 </div>
               </div>
 
-              {/* Asset Selection */}
+              {/* Asset Selection - Only cNGN supported */}
               <div>
                 <label className="block text-sm font-bold text-gray-800 uppercase tracking-wide mb-3">
-                  Select Asset
+                  Payment Asset
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {Object.keys(TOKEN_ADDRESSES).map((token) => (
-                    <button
-                      key={token}
-                      onClick={() => setSelectedToken(token)}
-                      className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                        selectedToken === token
-                          ? 'border-blue-500 bg-blue-50 shadow-lg'
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        {token === 'cNGN' && <Globe className="w-5 h-5 text-green-600" />}
-                        {token === 'ETH' && <div className="w-5 h-5 bg-gray-600 rounded-full"></div>}
-                        {token === 'USDC' && <div className="w-5 h-5 bg-blue-600 rounded-full"></div>}
-                        {token === 'USDT' && <div className="w-5 h-5 bg-green-600 rounded-full"></div>}
-                        <div>
-                          <p className="font-semibold text-gray-900">{token}</p>
-                          <p className="text-xs text-gray-600">Balance: {getTokenBalance(token)}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                <div className="flex space-x-3">
+                  <button
+                    className="flex items-center space-x-2 px-4 py-3 rounded-xl border-2 border-blue-500 bg-blue-50"
+                  >
+                    <Globe className="w-4 h-4 text-green-600" />
+                    <span className="font-semibold">cNGN</span>
+                  </button>
                 </div>
               </div>
 
@@ -258,19 +232,19 @@ export default function TransactionProposer({ walletAddress, onTransactionPropos
               {/* Amount */}
               <div>
                 <label className="block text-sm font-bold text-gray-800 uppercase tracking-wide mb-3">
-                  Amount ({selectedToken})
+                  Amount (cNGN)
                 </label>
                 <div className="relative">
                   <input
                     type="text"
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
-                    placeholder={`0.00 ${selectedToken}`}
+                    placeholder={`0.00 cNGN`}
                     className={`w-full border-2 rounded-xl px-4 py-4 text-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 ${
                       errors.value ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-white'
                     }`}
                   />
-                  {selectedToken === 'cNGN' && value && (
+                  {value && (
                     <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
                       <span className="text-sm text-gray-600">≈ ₦{getNgnValue()}</span>
                     </div>
@@ -283,7 +257,7 @@ export default function TransactionProposer({ walletAddress, onTransactionPropos
                   </p>
                 )}
                 <p className="text-sm text-gray-600 mt-2">
-                  Available: {getTokenBalance(selectedToken)} {selectedToken}
+                  Available: {getTokenBalance('cNGN')} cNGN
                 </p>
               </div>
 
@@ -331,13 +305,13 @@ export default function TransactionProposer({ walletAddress, onTransactionPropos
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-blue-700 font-medium">Asset:</span>
-                    <span className="text-blue-900 font-semibold">{selectedToken}</span>
+                    <span className="text-blue-900 font-semibold">cNGN</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-blue-700 font-medium">Amount:</span>
-                    <span className="text-blue-900 font-semibold">{value} {selectedToken}</span>
+                    <span className="text-blue-900 font-semibold">{value} cNGN</span>
                   </div>
-                  {selectedToken === 'cNGN' && (
+                  {value && (
                     <div className="flex justify-between">
                       <span className="text-blue-700 font-medium">NGN Value:</span>
                       <span className="text-blue-900 font-semibold">₦{getNgnValue()}</span>
@@ -401,7 +375,7 @@ export default function TransactionProposer({ walletAddress, onTransactionPropos
                   Payment Proposed Successfully!
                 </h3>
                 <p className="text-gray-600 mb-6 text-lg leading-relaxed">
-                  Your {selectedToken} payment has been proposed to the treasury. 
+                  Your cNGN payment has been proposed to the treasury. 
                   Other signers will now review and approve this transaction.
                 </p>
                 {proposeData && (

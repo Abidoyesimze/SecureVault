@@ -1,30 +1,32 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useAccount, useWalletClient } from 'wagmi';
+import { useAccount, useWalletClient, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { MultisigContract } from '../app/index';
 import { 
   Wallet, 
   Users, 
-  Shield, 
   Send, 
   CheckCircle, 
   Clock, 
-  Plus,
+  AlertCircle, 
+  X, 
+  Copy, 
+  ExternalLink, 
+  Plus, 
+  Settings, 
   BarChart3,
-  X,
-  Copy,
-  Check,
-  AlertCircle,
-  RefreshCw,
-  Building2,
+  Building2, 
   TrendingUp,
   Globe,
-  Edit3
+  Edit3,
+  Check,
+  RefreshCw,
+  Shield
 } from 'lucide-react';
+import { ethers } from 'ethers';
 import { contractService, WalletInfo, TransactionInfo } from '../lib/contractService';
 import { walletNamingService } from '../lib/walletNaming';
-import { ethers } from 'ethers';
-import { isCNGNApiConfigured } from '../lib/cngnConfig';
 import TransactionProposer from './TransactionProposer';
 import TransactionApprover from './TransactionApprover';
 import TransactionExecutor from './TransactionExecutor';
@@ -49,7 +51,6 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
   const { address } = useAccount();
   const { data: signer } = useWalletClient();
   const [mounted, setMounted] = useState(false);
-  const isInitialLoad = useRef(true);
   
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
   const [transactions, setTransactions] = useState<TransactionInfo[]>([]);
@@ -61,37 +62,45 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
     totalTransactions: 0,
     balance: '0'
   });
+  
   const [userWallets, setUserWallets] = useState<string[]>([]);
   const [selectedWallet, setSelectedWallet] = useState<string>('');
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
-  const [showTransactionProposer, setShowTransactionProposer] = useState(false);
-  const [showTransactionApprover, setShowTransactionApprover] = useState(false);
-  const [showTransactionExecutor, setShowTransactionExecutor] = useState(false);
-  const [selectedTransaction, setSelectedTransaction] = useState<TransactionInfo | null>(null);
-  const [showSignerManager, setShowSignerManager] = useState(false);
-  const [showBulkPayment, setShowBulkPayment] = useState(false);
-  const [showWalletNameEditor, setShowWalletNameEditor] = useState(false);
   const [isLoadingWallets, setIsLoadingWallets] = useState(false);
   const [isLoadingWalletInfo, setIsLoadingWalletInfo] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCurrentUserSigner, setIsCurrentUserSigner] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
 
+  // Modal state variables
+  const [showTransactionProposer, setShowTransactionProposer] = useState(false);
+  const [showTransactionApprover, setShowTransactionApprover] = useState(false);
+  const [showTransactionExecutor, setShowTransactionExecutor] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<TransactionInfo | null>(null);
+  const [showSignerManager, setShowSignerManager] = useState(false);
+  const [showBulkPayment, setShowBulkPayment] = useState(false);
+
   // Fix hydration issue
   useEffect(() => {
     setMounted(true);
-    // Initialize wallet naming service on client side
-    walletNamingService.initialize();
   }, []);
 
-  // Initialize contract service with signer
+  // Load user's wallets
   useEffect(() => {
-    if (signer && mounted) {
-      // No need to set wallet client for read-only operations
+    if (address && mounted) {
+      loadUserWallets();
     }
-  }, [signer, mounted]);
+  }, [address, mounted]);
 
-  const loadUserWallets = useCallback(async () => {
+  // Load wallet info when selected
+  useEffect(() => {
+    if (selectedWallet && mounted) {
+      loadWalletInfo();
+      loadTransactions();
+    }
+  }, [selectedWallet, mounted]);
+
+  const loadUserWallets = async () => {
     if (!address) return;
     
     setIsLoadingWallets(true);
@@ -101,34 +110,27 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
       console.log('Found wallets:', wallets);
       setUserWallets(wallets);
       
-      // Only auto-select first wallet if this is the initial load and no wallet is selected
-      // AND we haven't already loaded wallets before
-      if (wallets.length > 0 && !selectedWallet && isInitialLoad.current) {
+      // Auto-select first wallet if available
+      if (wallets.length > 0 && !selectedWallet) {
         console.log('Auto-selecting first wallet:', wallets[0]);
         setSelectedWallet(wallets[0]);
-        isInitialLoad.current = false;
       }
     } catch (error) {
       console.error('Error loading user wallets:', error);
     } finally {
       setIsLoadingWallets(false);
     }
-  }, [address]); // Only depend on address, not selectedWallet
+  };
 
-  const loadWalletInfo = useCallback(async () => {
+  const loadWalletInfo = async () => {
     if (!selectedWallet) return;
     
     setIsLoadingWalletInfo(true);
     setWalletError(null);
     
     try {
-      console.log('=== LOADING WALLET INFO ===');
-      console.log('Selected wallet address:', selectedWallet);
-      console.log('Current user address:', address);
-      
       const isValidContract = await contractService.verifyWalletContract(selectedWallet);
       if (!isValidContract) {
-        console.error('Invalid wallet contract - cannot load data');
         setWalletError('Invalid wallet contract - no contract deployed at this address');
         throw new Error('Invalid wallet contract');
       }
@@ -138,20 +140,15 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
         contractService.getWalletBalance(selectedWallet)
       ]);
       
-      console.log('=== WALLET INFO LOADED ===');
-      console.log('Wallet info:', info);
-      console.log('Wallet balance:', balance);
-      
       setWalletInfo(info);
       
       // Check if current user is a signer
       if (address) {
         const isSigner = info.signers.includes(address);
         setIsCurrentUserSigner(isSigner);
-        console.log('Current user is signer:', isSigner);
       }
       
-      // Update stats with real data from blockchain
+      // Update stats
       const newStats = {
         totalSigners: info.signers.length,
         activeSigners: info.signers.length,
@@ -161,14 +158,10 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
         balance: parseFloat(balance).toFixed(4)
       };
       
-      console.log('=== UPDATING STATS ===');
-      console.log('New stats:', newStats);
       setStats(newStats);
       
     } catch (error) {
-      console.error('=== ERROR LOADING WALLET INFO ===');
-      console.error('Error details:', error);
-      
+      console.error('Error loading wallet info:', error);
       if (error instanceof Error) {
         setWalletError(error.message);
       } else {
@@ -187,48 +180,50 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
     } finally {
       setIsLoadingWalletInfo(false);
     }
-  }, [selectedWallet, address]);
+  };
 
-  const loadTransactions = useCallback(async () => {
+  const loadTransactions = async () => {
     if (!selectedWallet) return;
     
     try {
-      console.log('Loading transactions for wallet:', selectedWallet);
       const txs = await contractService.getAllTransactions(selectedWallet);
-      console.log('Transactions loaded:', txs);
       setTransactions(txs);
     } catch (error) {
       console.error('Error loading transactions:', error);
       setTransactions([]);
     }
-  }, [selectedWallet]);
-
-  // Load user's wallets
-  useEffect(() => {
-    if (address && mounted) {
-      loadUserWallets();
-    }
-  }, [address, mounted, loadUserWallets]);
-
-  // Load wallet info when selected
-  useEffect(() => {
-    if (selectedWallet && mounted) {
-      loadWalletInfo();
-      loadTransactions();
-    }
-  }, [selectedWallet, mounted, loadWalletInfo, loadTransactions]);
-
-  const proposeTransaction = async () => {
-    if (!selectedWallet) return;
-    setShowTransactionProposer(true);
   };
 
-  const approveTransaction = async (transaction: TransactionInfo) => {
+  // Button click handlers with debug logging
+  const handleNewPayment = () => {
+    console.log('NEW PAYMENT BUTTON CLICKED');
+    console.log('selectedWallet:', selectedWallet);
+    console.log('isCurrentUserSigner:', isCurrentUserSigner);
+    setShowTransactionProposer(true);
+    console.log('showTransactionProposer set to true');
+  };
+
+  const handleBulkPayment = () => {
+    console.log('BULK PAYMENT BUTTON CLICKED');
+    console.log('selectedWallet:', selectedWallet);
+    setShowBulkPayment(true);
+    console.log('showBulkPayment set to true');
+  };
+
+  const handleSignerManager = () => {
+    console.log('SIGNER MANAGER BUTTON CLICKED');
+    console.log('selectedWallet:', selectedWallet);
+    console.log('walletInfo:', walletInfo);
+    setShowSignerManager(true);
+    console.log('showSignerManager set to true');
+  };
+
+  const approveTransaction = (transaction: TransactionInfo) => {
     setSelectedTransaction(transaction);
     setShowTransactionApprover(true);
   };
 
-  const executeTransaction = async (transaction: TransactionInfo) => {
+  const executeTransaction = (transaction: TransactionInfo) => {
     setSelectedTransaction(transaction);
     setShowTransactionExecutor(true);
   };
@@ -256,57 +251,13 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
            walletNamingService.generateDefaultName(index);
   };
 
-  const handleWalletNameUpdate = (newName: string) => {
-    // Force re-render by updating the component state
-    if (selectedWallet) {
-      // This will trigger a re-render and update the display name
-      setSelectedWallet(selectedWallet);
-    }
-  };
-
-  const handleEditWalletName = (e: React.MouseEvent, walletAddress: string) => {
-    e.stopPropagation();
-    setShowWalletNameEditor(true);
-  };
-
-  const handleBackToWallets = () => {
-    setSelectedWallet('');
-    setWalletInfo(null);
-    setTransactions([]);
-    setStats({
-      totalSigners: 0,
-      activeSigners: 0,
-      threshold: 0,
-      pendingTransactions: 0,
-      totalTransactions: 0,
-      balance: '0'
-    });
-    setIsCurrentUserSigner(false);
-    setWalletError(null);
-  };
-
-  // Copy address functionality
   const copyAddress = async (address: string) => {
     try {
       await navigator.clipboard.writeText(address);
       setCopiedAddress(address);
-      
-      setTimeout(() => {
-        setCopiedAddress(null);
-      }, 2000);
+      setTimeout(() => setCopiedAddress(null), 2000);
     } catch (error) {
       console.error('Failed to copy address:', error);
-      const textArea = document.createElement('textarea');
-      textArea.value = address;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      
-      setCopiedAddress(address);
-      setTimeout(() => {
-        setCopiedAddress(null);
-      }, 2000);
     }
   };
 
@@ -395,18 +346,9 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
                           <Building2 className="w-7 h-7 text-white" />
                         </div>
                         <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <h4 className="text-xl font-bold text-gray-900">
-                              {getWalletDisplayName(wallet, index)}
-                            </h4>
-                            <button
-                              onClick={(e) => handleEditWalletName(e, wallet)}
-                              className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-200 transition-all duration-200"
-                              title="Edit treasury name"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                            </button>
-                          </div>
+                          <h4 className="text-xl font-bold text-gray-900">
+                            {getWalletDisplayName(wallet, index)}
+                          </h4>
                           <p className="text-sm text-gray-600 font-mono bg-gray-100 px-3 py-1 rounded-lg inline-block mt-1">
                             {wallet.slice(0, 8)}...{wallet.slice(-6)}
                           </p>
@@ -444,7 +386,7 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-6">
                     <button
-                      onClick={handleBackToWallets}
+                      onClick={() => setSelectedWallet('')}
                       className="p-3 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-100 transition-all duration-200"
                     >
                       <X className="w-6 h-6" />
@@ -453,18 +395,9 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
                       <Building2 className="w-8 h-8 text-white" />
                     </div>
                     <div>
-                      <div className="flex items-center space-x-2">
-                        <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-800 to-indigo-900 bg-clip-text text-transparent">
-                          {getWalletDisplayName(selectedWallet, userWallets.indexOf(selectedWallet))}
-                        </h2>
-                        <button
-                          onClick={(e) => handleEditWalletName(e, selectedWallet)}
-                          className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-all duration-200"
-                          title="Edit treasury name"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-800 to-indigo-900 bg-clip-text text-transparent">
+                        {getWalletDisplayName(selectedWallet, userWallets.indexOf(selectedWallet))}
+                      </h2>
                       <div className="flex items-center space-x-3 mt-2">
                         <p className="text-sm text-gray-600 font-mono bg-gray-100 px-3 py-1 rounded-lg">
                           {selectedWallet.slice(0, 8)}...{selectedWallet.slice(-6)}
@@ -548,9 +481,6 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
                         <p>• This treasury address may not be a valid multi-signature contract</p>
                         <p>• The contract may not be deployed on Base Sepolia testnet</p>
                         <p>• The contract may have been created with incorrect parameters</p>
-                        {isCNGNApiConfigured() && (
-                          <p>• cNGN API integration is enabled - balances are fetched from official API</p>
-                        )}
                       </div>
                       <div className="flex space-x-4 mt-6">
                         <button
@@ -583,22 +513,10 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
                         <div>
                           <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Treasury Balance</p>
                           <p className="text-3xl font-bold text-gray-900">₦{stats.balance}</p>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <p className="text-sm text-green-600 flex items-center">
-                              <TrendingUp className="w-3 h-3 mr-1" />
-                              cNGN Assets
-                            </p>
-                            {isCNGNApiConfigured() && (
-                              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
-                                Live API
-                              </span>
-                            )}
-                            {!isCNGNApiConfigured() && (
-                              <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold">
-                                Contract
-                              </span>
-                            )}
-                          </div>
+                          <p className="text-sm text-green-600 flex items-center mt-1">
+                            <TrendingUp className="w-3 h-3 mr-1" />
+                            cNGN Assets
+                          </p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
                           <Wallet className="w-6 h-6 text-white" />
@@ -655,32 +573,33 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
                       <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6">
                         <h3 className="text-lg font-bold text-gray-900 mb-6">Quick Actions</h3>
                         <div className="space-y-4">
-                          {isCurrentUserSigner && (
+                          {isCurrentUserSigner ? (
                             <>
                               <button
-                                onClick={proposeTransaction}
+                                onClick={handleNewPayment}
                                 className="w-full bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800 text-white py-4 rounded-xl font-semibold transition-all duration-200 shadow-lg flex items-center justify-center space-x-3"
                               >
                                 <Send className="w-5 h-5" />
                                 <span>New Payment</span>
                               </button>
+                              
                               <button
-                                onClick={() => setShowSignerManager(true)}
-                                className="w-full bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-700 hover:to-violet-800 text-white py-4 rounded-xl font-semibold transition-all duration-200 shadow-lg flex items-center justify-center space-x-3"
-                              >
-                                <Users className="w-5 h-5" />
-                                <span>Manage Signers</span>
-                              </button>
-                              <button
-                                onClick={() => setShowBulkPayment(true)}
+                                onClick={handleBulkPayment}
                                 className="w-full bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-700 hover:to-violet-800 text-white py-4 rounded-xl font-semibold transition-all duration-200 shadow-lg flex items-center justify-center space-x-3"
                               >
                                 <Users className="w-5 h-5" />
                                 <span>Bulk Payroll</span>
                               </button>
+                              
+                              <button
+                                onClick={handleSignerManager}
+                                className="w-full bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white py-4 rounded-xl font-semibold transition-all duration-200 shadow-lg flex items-center justify-center space-x-3"
+                              >
+                                <Settings className="w-5 h-5" />
+                                <span>Manage Signers</span>
+                              </button>
                             </>
-                          )}
-                          {!isCurrentUserSigner && (
+                          ) : (
                             <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-xl">
                               <Shield className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                               <p className="font-medium">Access Restricted</p>
@@ -741,7 +660,7 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
                           </div>
                           {isCurrentUserSigner && (
                             <button
-                              onClick={proposeTransaction}
+                              onClick={handleNewPayment}
                               className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-700 text-white rounded-xl hover:from-green-700 hover:to-emerald-800 transition-all duration-200 shadow-lg font-medium"
                             >
                               <Send className="w-4 h-4" />
@@ -751,7 +670,7 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
                         </div>
                         
                         <div className="space-y-4">
-                          {transactions.slice(0, 10).map((tx) => (
+                          {transactions.slice(0, 10).map((tx, index) => (
                             <div key={tx.id} className="flex items-center justify-between p-5 bg-white border-2 border-gray-100 rounded-xl hover:shadow-lg transition-all duration-200">
                               <div className="flex items-center space-x-4">
                                 {getStatusIcon(tx.executed, tx.approvalCount, tx.threshold)}
@@ -811,7 +730,7 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
                               <p className="text-gray-600 mb-6">Start by creating your first treasury transaction</p>
                               {isCurrentUserSigner && (
                                 <button
-                                  onClick={proposeTransaction}
+                                  onClick={handleNewPayment}
                                   className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-800 transition-all duration-200 shadow-lg"
                                 >
                                   Create First Transaction
@@ -933,16 +852,6 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
         />
       )}
 
-      {showSignerManager && walletInfo && (
-        <SignerManager
-          walletAddress={selectedWallet || ''}
-          currentSigners={walletInfo.signers}
-          currentThreshold={walletInfo.threshold}
-          onSignerUpdated={handleTransactionAction}
-          onClose={() => setShowSignerManager(false)}
-        />
-      )}
-
       {showBulkPayment && (
         <BulkPayment
           walletAddress={selectedWallet || ''}
@@ -951,12 +860,13 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
         />
       )}
 
-      {showWalletNameEditor && selectedWallet && (
-        <WalletNameEditor
-          walletAddress={selectedWallet}
-          currentName={getWalletDisplayName(selectedWallet, userWallets.indexOf(selectedWallet))}
-          onNameUpdated={handleWalletNameUpdate}
-          onClose={() => setShowWalletNameEditor(false)}
+      {showSignerManager && walletInfo && (
+        <SignerManager
+          walletAddress={selectedWallet || ''}
+          currentSigners={walletInfo.signers}
+          currentThreshold={walletInfo.threshold}
+          onSignerUpdated={handleTransactionAction}
+          onClose={() => setShowSignerManager(false)}
         />
       )}
     </div>

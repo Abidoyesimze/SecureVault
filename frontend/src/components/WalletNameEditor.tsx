@@ -18,8 +18,6 @@ export default function WalletNameEditor({ walletAddress, currentName, onNameUpd
 
   useEffect(() => {
     setName(currentName);
-    // Initialize wallet naming service on client side
-    walletNamingService.initialize();
   }, [currentName]);
 
   const handleSave = () => {
